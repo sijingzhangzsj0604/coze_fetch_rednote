@@ -57,8 +57,9 @@ basekit.addAction({
       let debugUrl = '';
       const rawChunks: any[] = [];
 
-      // 错误事件跟踪
+      // 错误/完成事件跟踪
       let hasErrorEvent = false;
+      let hasDoneEvent = false;
       let errorMessageFromEvent = '';
       let errorCodeFromEvent: string | number | undefined;
       let errorDebugUrlFromEvent = '';
@@ -81,6 +82,11 @@ basekit.addAction({
           errorDebugUrlFromEvent = data.debug_url || errorDebugUrlFromEvent;
         }
 
+        // 完成事件
+        if (eventName === 'done') {
+          hasDoneEvent = true;
+        }
+
         // 额外字段抓取
         if ((chunk as any).msg) {
           msgValue = (chunk as any).msg;
@@ -93,21 +99,28 @@ basekit.addAction({
         }
       }
 
-      // 根据是否有 Error 事件决定返回
+      // 优先：出现 Error 事件 → 失败
       if (hasErrorEvent) {
-        const parts: string[] = [];
-        if (errorMessageFromEvent) parts.push(String(errorMessageFromEvent));
-        if (errorCodeFromEvent !== undefined) parts.push(`code=${errorCodeFromEvent}`);
         return {
           success: false,
           result: errorDebugUrlFromEvent || debugUrl || '',
-          message: parts.join(' | ') || '执行失败'
+          message: result
         };
       }
 
+      // 其次：必须收到了 Done 事件才算成功
+      if (hasDoneEvent) {
+        return {
+          success: true,
+          result: debugUrl || result,
+          message: result
+        };
+      }
+
+      // 未收到 Done（可能中断或未产出）→ 失败
       return {
-        success: true,
-        result: debugUrl || result,
+        success: false,
+        result: debugUrl || '',
         message: result
       };
     } catch (error) {
@@ -115,22 +128,12 @@ basekit.addAction({
       // 适配 Coze 实际错误返回结构
       const errAny: any = error as any;
       const cozeData = errAny?.response?.data || errAny?.data || {};
-      const headers = errAny?.headers || errAny?.response?.headers || {};
       const debugUrl = cozeData?.debug_url || '';
-      const code = cozeData?.code || cozeData?.error_code || errAny?.code;
-      const logid = errAny?.logid || headers['x-tt-logid'] || headers['x-tt-trace-id'] || '';
-      const baseMsg = cozeData?.msg || cozeData?.error_message || errAny?.message || '请求失败';
-      const detail = cozeData?.detail;
-
-      const parts: string[] = [String(baseMsg)];
-      if (code) parts.push(`code=${code}`);
-      if (logid) parts.push(`logid=${logid}`);
-      if (detail) parts.push(`detail=${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
 
       return {
         success: false,
         result: debugUrl || '',
-        message: parts.join(' | ')
+        message: ''
       };
     }
   },
