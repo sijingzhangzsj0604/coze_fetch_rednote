@@ -55,7 +55,9 @@ basekit.addAction({
       let result = '';
       let msgValue = '';
       let debugUrl = '';
+      const rawChunks: any[] = [];
       for await (const chunk of res) {
+        rawChunks.push(chunk);
         // 处理不同类型的响应事件
         if ((chunk as any).event && (chunk as any).event.includes('message')) {
           result += (chunk as any).data?.content || '';
@@ -73,7 +75,7 @@ basekit.addAction({
       return {
         success: true,
         result: debugUrl || result,
-        message: msgValue || '小红书数据获取成功'
+        message: JSON.stringify(rawChunks)
       };
     } catch (error) {
       console.error('Coze API调用失败:', error);
