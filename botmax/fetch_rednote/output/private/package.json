@@ -7,7 +7,8 @@
     "test": "block-basekit-cli test",
     "build": "block-basekit-cli build",
     "preview": "block-basekit-cli preview",
-    "upload": "block-basekit-cli upload"
+    "upload": "block-basekit-cli upload",
+    "coze:test": "node test/coze_stream.js"
   },
   "author": "",
   "license": "ISC",

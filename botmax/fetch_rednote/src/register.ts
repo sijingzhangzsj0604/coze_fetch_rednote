@@ -57,30 +57,80 @@ basekit.addAction({
       let debugUrl = '';
       const rawChunks: any[] = [];
 
+      // 错误事件跟踪
+      let hasErrorEvent = false;
+      let errorMessageFromEvent = '';
+      let errorCodeFromEvent: string | number | undefined;
+      let errorDebugUrlFromEvent = '';
+
       for await (const chunk of res as any) {
         rawChunks.push(chunk);
-        if ((chunk as any).event && (chunk as any).event.includes('message')) {
+        const eventName = (chunk as any).event ? String((chunk as any).event).toLowerCase() : '';
+
+        // 成功消息事件：累积内容
+        if (eventName.includes('message')) {
           result += (chunk as any).data?.content || '';
         }
+
+        // 错误事件：记录错误信息
+        if (eventName === 'error') {
+          hasErrorEvent = true;
+          const data = (chunk as any).data || {};
+          errorMessageFromEvent = data.error_message || data.msg || errorMessageFromEvent;
+          errorCodeFromEvent = data.error_code ?? errorCodeFromEvent;
+          errorDebugUrlFromEvent = data.debug_url || errorDebugUrlFromEvent;
+        }
+
+        // 额外字段抓取
         if ((chunk as any).msg) {
           msgValue = (chunk as any).msg;
         }
         if ((chunk as any).debug_url) {
           debugUrl = (chunk as any).debug_url;
         }
+        if ((chunk as any).data?.debug_url) {
+          debugUrl = (chunk as any).data.debug_url;
+        }
+      }
+
+      // 根据是否有 Error 事件决定返回
+      if (hasErrorEvent) {
+        const parts: string[] = [];
+        if (errorMessageFromEvent) parts.push(String(errorMessageFromEvent));
+        if (errorCodeFromEvent !== undefined) parts.push(`code=${errorCodeFromEvent}`);
+        return {
+          success: false,
+          result: errorDebugUrlFromEvent || debugUrl || '',
+          message: parts.join(' | ') || '执行失败'
+        };
       }
 
       return {
         success: true,
         result: debugUrl || result,
-        message: JSON.stringify(rawChunks)
+        message: result
       };
     } catch (error) {
       console.error('Coze API调用失败:', error);
+      // 适配 Coze 实际错误返回结构
+      const errAny: any = error as any;
+      const cozeData = errAny?.response?.data || errAny?.data || {};
+      const headers = errAny?.headers || errAny?.response?.headers || {};
+      const debugUrl = cozeData?.debug_url || '';
+      const code = cozeData?.code || cozeData?.error_code || errAny?.code;
+      const logid = errAny?.logid || headers['x-tt-logid'] || headers['x-tt-trace-id'] || '';
+      const baseMsg = cozeData?.msg || cozeData?.error_message || errAny?.message || '请求失败';
+      const detail = cozeData?.detail;
+
+      const parts: string[] = [String(baseMsg)];
+      if (code) parts.push(`code=${code}`);
+      if (logid) parts.push(`logid=${logid}`);
+      if (detail) parts.push(`detail=${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
+
       return {
         success: false,
-        result: '',
-        message: `获取失败: ${error.message}`
+        result: debugUrl || '',
+        message: parts.join(' | ')
       };
     }
   },
