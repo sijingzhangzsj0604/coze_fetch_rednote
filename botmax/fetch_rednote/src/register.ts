@@ -53,17 +53,27 @@ basekit.addAction({
 
       // 处理响应结果
       let result = '';
+      let msgValue = '';
+      let debugUrl = '';
       for await (const chunk of res) {
         // 处理不同类型的响应事件
         if ((chunk as any).event && (chunk as any).event.includes('message')) {
           result += (chunk as any).data?.content || '';
         }
+        // 提取msg字段值
+        if ((chunk as any).msg) {
+          msgValue = (chunk as any).msg;
+        }
+        // 提取debug_url字段值
+        if ((chunk as any).debug_url) {
+          debugUrl = (chunk as any).debug_url;
+        }
       }
 
       return {
         success: true,
-        result: result,
-        message: '小红书数据获取成功'
+        result: debugUrl || result,
+        message: msgValue || '小红书数据获取成功'
       };
     } catch (error) {
       console.error('Coze API调用失败:', error);
