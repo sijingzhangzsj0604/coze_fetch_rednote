@@ -112,7 +112,7 @@ basekit.addAction({
       if (hasDoneEvent) {
         return {
           success: true,
-          result: debugUrl || result,
+          result: debugUrl || '',
           message: result
         };
       }
