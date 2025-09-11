@@ -51,22 +51,20 @@ basekit.addAction({
         }
       });
 
-      // 处理响应结果
+      // 处理响应结果（官方最佳实践：直接消费 stream 的异步迭代器）
       let result = '';
       let msgValue = '';
       let debugUrl = '';
       const rawChunks: any[] = [];
-      for await (const chunk of res) {
+
+      for await (const chunk of res as any) {
         rawChunks.push(chunk);
-        // 处理不同类型的响应事件
         if ((chunk as any).event && (chunk as any).event.includes('message')) {
           result += (chunk as any).data?.content || '';
         }
-        // 提取msg字段值
         if ((chunk as any).msg) {
           msgValue = (chunk as any).msg;
         }
-        // 提取debug_url字段值
         if ((chunk as any).debug_url) {
           debugUrl = (chunk as any).debug_url;
         }
